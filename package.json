@@ -7,9 +7,9 @@
   "scripts": {
     "build": "npm run build:slides && npm run build:index",
     "build:slides": "npm run build:sre-next-2025 && npm run build:slidev-system",
-    "build:sre-next-2025": "cd slides/sre-next-2025/src && npm install && npm run build",
-    "build:slidev-system": "cd slides/slidev-system/src && npm install && npm run build",
-    "build:index": "node scripts/build-index.js",
+    "build:sre-next-2025": "cd slides/sre-next-2025/src && npm install && npm run build && cp -r dist/* ../../../dist/sre-next-2025/",
+    "build:slidev-system": "cd slides/slidev-system/src && npm install && npm run build && cp -r dist/* ../../../dist/slidev-system/",
+    "build:index": "mkdir -p dist && node scripts/build-index.js",
     "dev:sre-next-2025": "cd slides/sre-next-2025/src && npm run dev",
     "dev:slidev-system": "cd slides/slidev-system/src && npm run dev"
   },
