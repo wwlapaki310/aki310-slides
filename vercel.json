@@ -1,6 +1,7 @@
 {
   "installCommand": "npm install",
   "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "rewrites": [
     { "source": "/sre-next-2025/(.*)", "destination": "/sre-next-2025/index.html" },
     { "source": "/slidev-system/(.*)", "destination": "/slidev-system/index.html" },
