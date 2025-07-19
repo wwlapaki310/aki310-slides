@@ -54,7 +54,7 @@ Presentation subtitle
   <button @click="$slidev.nav.openInEditor()" title="Open in Editor" class="text-xl slidev-icon-btn opacity-50 !border-none !hover:text-white">
     <carbon:edit />
   </button>
-  <a href="https://github.com/wwlapaki310/aki310-slides" target="_blank" alt="GitHub" title="Open in GitHub"
+  <a href="https://github.com/wwlapaki310/my-slidev-presentations" target="_blank" alt="GitHub" title="Open in GitHub"
     class="text-xl slidev-icon-btn opacity-50 !border-none !hover:text-white">
     <carbon-logo-github />
   </a>
@@ -110,12 +110,87 @@ function generatePackageJson(slideName) {
     }, null, 2);
 }
 
+// build-index.jsにメタデータを追加
+function updateBuildIndex(slideName, title) {
+    const buildIndexPath = 'scripts/build-index.js';
+    let content = fs.readFileSync(buildIndexPath, 'utf8');
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    const newSlide = `  {
+    name: '${slideName}',
+    title: '${title}',
+    description: '${title}の解説プレゼンテーション',
+    date: '${today}',
+    author: 'Satoru Akita',
+    tags: ['Slidev', 'Presentation']
+  }`;
+
+    // slidesアレイに新しいスライドを追加
+    const slidesMatch = content.match(/(const slides = \\[)([\\s\\S]*?)(\\];)/);
+    if (slidesMatch) {
+        const existingSlides = slidesMatch[2].trim();
+        const newSlidesContent = existingSlides ? 
+            `${existingSlides},\\n${newSlide}` : 
+            newSlide;
+        
+        content = content.replace(
+            /(const slides = \\[)([\\s\\S]*?)(\\];)/,
+            `$1\\n${newSlidesContent}\\n$3`
+        );
+        
+        fs.writeFileSync(buildIndexPath, content);
+    }
+}
+
+// ルートpackage.jsonのビルドスクリプトを更新
+function updateRootPackageJson(slideName) {
+    const packageJsonPath = 'package.json';
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    
+    // 新しいビルドスクリプトを追加
+    const newBuildScript = `cd ${slideName}/src && npm install && npm run build`;
+    packageJson.scripts[`build:${slideName}`] = newBuildScript;
+    
+    // メインビルドスクリプトを更新
+    const buildCommands = Object.keys(packageJson.scripts)
+        .filter(key => key.startsWith('build:') && key !== 'build:index')
+        .map(key => `npm run ${key}`)
+        .join(' && ');
+    
+    packageJson.scripts.build = `${buildCommands} && npm run build:index`;
+    
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+}
+
+// vercel.jsonを更新
+function updateVercelJson(slideName) {
+    const vercelJsonPath = 'vercel.json';
+    const vercelJson = JSON.parse(fs.readFileSync(vercelJsonPath, 'utf8'));
+    
+    // 新しいリライトルールを追加
+    const newRewrite = {
+        "source": `/${slideName}/(.*)`,
+        "destination": `/${slideName}/index.html`
+    };
+    
+    // ルートパスのリライトルールを除いて新しいルールを追加
+    const rootRewrite = vercelJson.rewrites.find(r => r.source === "/");
+    vercelJson.rewrites = vercelJson.rewrites.filter(r => r.source !== "/");
+    vercelJson.rewrites.push(newRewrite);
+    if (rootRewrite) {
+        vercelJson.rewrites.push(rootRewrite);
+    }
+    
+    fs.writeFileSync(vercelJsonPath, JSON.stringify(vercelJson, null, 2));
+}
+
 // メイン実行関数
 function createSlide(slideName, title) {
-    const slideDir = `slides/${slideName}/src`;
+    const slideDir = `${slideName}/src`;
     
     // 既存チェック
-    if (fs.existsSync(`slides/${slideName}`)) {
+    if (fs.existsSync(slideName)) {
         console.error(`❌ Slide "${slideName}" already exists!`);
         process.exit(1);
     }
@@ -137,14 +212,25 @@ function createSlide(slideName, title) {
         fs.writeFileSync(`${slideDir}/package.json`, packageJson);
         console.log(`📦 Created package.json`);
         
-        console.log(`\n✅ Successfully created slide: ${slideName}`);
-        console.log(`\n🎯 Next steps:`);
-        console.log(`   1. cd slides/${slideName}/src`);
+        // build-index.jsにメタデータ追加
+        updateBuildIndex(slideName, title);
+        console.log(`🔧 Updated build-index.js`);
+        
+        // ルートpackage.jsonのビルドスクリプト更新
+        updateRootPackageJson(slideName);
+        console.log(`📦 Updated root package.json`);
+        
+        // vercel.json更新
+        updateVercelJson(slideName);
+        console.log(`🌐 Updated vercel.json`);
+        
+        console.log(`\\n✅ Successfully created slide: ${slideName}`);
+        console.log(`\\n🎯 Next steps:`);
+        console.log(`   1. cd ${slideName}/src`);
         console.log(`   2. npm run dev`);
         console.log(`   3. Edit slides.md`);
         console.log(`   4. npm run build (from root directory)`);
-        console.log(`   5. Update scripts/slide-metadata.json manually`);
-        console.log(`\n🚀 Your slide will be available at: /${slideName}/`);
+        console.log(`\\n🚀 Your slide will be available at: /${slideName}/`);
         
     } catch (error) {
         console.error(`❌ Error creating slide: ${error.message}`);
