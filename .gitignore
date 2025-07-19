@@ -1,0 +1,14 @@
+node_modules
+.DS_Store
+dist
+*.local
+.output
+.vercel
+.netlify
+.nitro
+.cache
+.temp
+.tmp
+
+# Build artifacts
+*.log
