@@ -1,26 +1,17 @@
 {
   "name": "aki310-slides",
   "version": "1.0.0",
-  "description": "Personal Slidev presentations with advanced tag management and customization features",
+  "description": "Simple Slidev multi-slide management system with Vercel deployment",
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "npm run build:slides && npm run build:index && npm run build:previews",
+    "build": "npm run build:slides && npm run build:index",
     "build:slides": "npm run build:sre-next-2025 && npm run build:slidev-system",
     "build:sre-next-2025": "cd slides/sre-next-2025/src && npm install && npm run build",
     "build:slidev-system": "cd slides/slidev-system/src && npm install && npm run build",
     "build:index": "node scripts/build-index.js",
-    "build:previews": "node scripts/generate-previews.js --production",
-    "generate-previews": "node scripts/generate-previews.js",
-    "generate-previews:dev": "node scripts/generate-previews.js --with-server",
-    "generate-previews:local": "npm run build:slides && npm run generate-previews:dev",
-    "update-previews": "npm run generate-previews:local && git add dist/previews/ && git commit -m '🖼️ Update preview images' && git push",
-    "create-slide": "node scripts/create-slide.js",
     "dev:sre-next-2025": "cd slides/sre-next-2025/src && npm run dev",
     "dev:slidev-system": "cd slides/slidev-system/src && npm run dev"
-  },
-  "devDependencies": {
-    "playwright-chromium": "^1.45.1"
   },
   "repository": {
     "type": "git",
