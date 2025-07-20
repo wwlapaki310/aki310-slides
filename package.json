@@ -4,12 +4,14 @@
   "description": "Multiple Slidev presentations management system",
   "type": "module",
   "scripts": {
-    "build": "npm run build:slidev-system && npm run build:sre-next-2025 && npm run build:index",
-    "build:slidev-system": "cd slides/slidev-system/src && npm run build",
+    "build": "npm run build:sre-next-2025 && npm run build:slidev-system && npm run build:smart-tag-system && npm run build:index",
     "build:sre-next-2025": "cd slides/sre-next-2025/src && npm run build",
+    "build:slidev-system": "cd slides/slidev-system/src && npm run build",
+    "build:smart-tag-system": "cd slides/smart-tag-system/src && npm run build",
     "build:index": "node scripts/build-index.js",
-    "dev:slidev-system": "cd slides/slidev-system/src && npm run dev",
     "dev:sre-next-2025": "cd slides/sre-next-2025/src && npm run dev",
+    "dev:slidev-system": "cd slides/slidev-system/src && npm run dev",
+    "dev:smart-tag-system": "cd slides/smart-tag-system/src && npm run dev",
     "create-slide": "node scripts/create-slide.js",
     "generate-previews": "node scripts/generate-previews.js"
   },
