@@ -1,22 +1,17 @@
 /**
  * Tag Manager - Simple and Integrated Tag Management System
- * Works with GitHub Gist API for automatic persistence
+ * Works with localStorage for persistence
  */
 
 class TagManager {
     constructor() {
-        this.gistAPI = new GistAPI();
         this.data = {
             tags: {},
             assignments: {},
             lastUpdated: null
         };
         
-        this.syncInProgress = false;
         this.autoSaveTimeout = null;
-        
-        // Cache DOM elements
-        this.elements = {};
         
         this.init();
     }
@@ -25,76 +20,41 @@ class TagManager {
      * Initialize the tag manager
      */
     async init() {
-        this.cacheElements();
+        this.loadData();
         this.bindEvents();
-        await this.loadData();
         this.render();
-    }
-
-    /**
-     * Cache frequently used DOM elements
-     */
-    cacheElements() {
-        this.elements = {
-            configPanel: document.getElementById('configPanel'),
-            tokenInput: document.getElementById('githubToken'),
-            gistIdInput: document.getElementById('gistId'),
-            saveConfigBtn: document.getElementById('saveConfig'),
-            testConnectionBtn: document.getElementById('testConnection'),
-            statusDisplay: document.getElementById('connectionStatus'),
-            tagsContainer: document.getElementById('tagsContainer'),
-            addTagBtn: document.getElementById('addTag'),
-            newTagInput: document.getElementById('newTagName'),
-            syncIndicator: document.getElementById('syncIndicator')
-        };
+        this.renderAllSlideTags();
     }
 
     /**
      * Bind event listeners
      */
     bindEvents() {
-        // Configuration events
-        this.elements.saveConfigBtn?.addEventListener('click', () => this.saveConfig());
-        this.elements.testConnectionBtn?.addEventListener('click', () => this.testConnection());
-        
         // Tag creation events
-        this.elements.addTagBtn?.addEventListener('click', () => this.addTag());
-        this.elements.newTagInput?.addEventListener('keypress', (e) => {
+        const addTagBtn = document.getElementById('addTag');
+        const newTagInput = document.getElementById('newTagName');
+        
+        addTagBtn?.addEventListener('click', () => this.addTag());
+        newTagInput?.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.addTag();
         });
 
-        // Auto-save on visibility change
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden && this.hasUnsavedChanges()) {
-                this.saveData();
-            }
+        // Auto-save on page unload
+        window.addEventListener('beforeunload', () => {
+            this.saveData();
         });
     }
 
     /**
-     * Load data from Gist or localStorage fallback
+     * Load data from localStorage
      */
-    async loadData() {
-        try {
-            if (this.gistAPI.isConfigured()) {
-                this.showSyncIndicator('Loading from GitHub...');
-                this.data = await this.gistAPI.loadData();
-                this.hideSyncIndicator();
-            } else {
-                // Fallback to localStorage
-                const stored = localStorage.getItem('tag-data');
-                if (stored) {
-                    this.data = JSON.parse(stored);
-                }
-            }
-        } catch (error) {
-            console.error('Failed to load tag data:', error);
-            this.showError('Failed to load tag data from GitHub');
-            
-            // Fallback to localStorage
-            const stored = localStorage.getItem('tag-data');
-            if (stored) {
+    loadData() {
+        const stored = localStorage.getItem('tag-data');
+        if (stored) {
+            try {
                 this.data = JSON.parse(stored);
+            } catch (error) {
+                console.error('Failed to parse tag data:', error);
             }
         }
         
@@ -104,31 +64,11 @@ class TagManager {
     }
 
     /**
-     * Save data to Gist and localStorage
+     * Save data to localStorage
      */
-    async saveData() {
-        if (this.syncInProgress) return;
-        
-        this.syncInProgress = true;
-        this.showSyncIndicator('Syncing...');
-        
-        try {
-            // Always save to localStorage as backup
-            localStorage.setItem('tag-data', JSON.stringify(this.data));
-            
-            // Save to Gist if configured
-            if (this.gistAPI.isConfigured()) {
-                await this.gistAPI.saveData(this.data);
-                this.showSyncIndicator('Synced to GitHub ✓', 2000);
-            } else {
-                this.hideSyncIndicator();
-            }
-        } catch (error) {
-            console.error('Failed to save tag data:', error);
-            this.showError('Failed to sync to GitHub (saved locally)');
-        } finally {
-            this.syncInProgress = false;
-        }
+    saveData() {
+        this.data.lastUpdated = new Date().toISOString();
+        localStorage.setItem('tag-data', JSON.stringify(this.data));
     }
 
     /**
@@ -141,14 +81,14 @@ class TagManager {
         
         this.autoSaveTimeout = setTimeout(() => {
             this.saveData();
-        }, 2000); // Save after 2 seconds of inactivity
+        }, 1000); // Save after 1 second of inactivity
     }
 
     /**
      * Add a new tag
      */
-    async addTag() {
-        const input = this.elements.newTagInput;
+    addTag() {
+        const input = document.getElementById('newTagName');
         const name = input?.value?.trim();
         
         if (!name) return;
@@ -156,7 +96,7 @@ class TagManager {
         const tagId = this.generateTagId(name);
         
         if (this.data.tags[tagId]) {
-            this.showError('Tag already exists');
+            alert('Tag already exists');
             return;
         }
         
@@ -168,13 +108,14 @@ class TagManager {
         
         input.value = '';
         this.render();
+        this.renderAllSlideTags();
         this.scheduleAutoSave();
     }
 
     /**
      * Remove a tag
      */
-    async removeTag(tagId) {
+    removeTag(tagId) {
         if (!confirm(`Remove tag "${this.data.tags[tagId]?.name}"?`)) return;
         
         // Remove from assignments
@@ -186,6 +127,7 @@ class TagManager {
         delete this.data.tags[tagId];
         
         this.render();
+        this.renderAllSlideTags();
         this.scheduleAutoSave();
     }
 
@@ -206,7 +148,7 @@ class TagManager {
             assignments.splice(index, 1);
         }
         
-        this.render();
+        this.renderSlideTagsForSlide(slideId);
         this.scheduleAutoSave();
     }
 
@@ -262,32 +204,15 @@ class TagManager {
      * Render the tag management UI
      */
     render() {
-        this.renderConfigurationStatus();
         this.renderTags();
         this.renderSlideFilters();
     }
 
     /**
-     * Render configuration status
-     */
-    renderConfigurationStatus() {
-        const status = this.gistAPI.getStatus();
-        const statusEl = this.elements.statusDisplay;
-        
-        if (!statusEl) return;
-        
-        if (status.isConfigured) {
-            statusEl.innerHTML = '<span class="text-green-600">✓ Connected to GitHub</span>';
-        } else {
-            statusEl.innerHTML = '<span class="text-yellow-600">⚠ Using local storage only</span>';
-        }
-    }
-
-    /**
-     * Render all tags
+     * Render all tags in management section
      */
     renderTags() {
-        const container = this.elements.tagsContainer;
+        const container = document.getElementById('tagsContainer');
         if (!container) return;
         
         const tags = Object.entries(this.data.tags);
@@ -328,67 +253,45 @@ class TagManager {
     }
 
     /**
-     * Configuration methods
+     * Render tags for all slides
      */
-    async saveConfig() {
-        const token = this.elements.tokenInput?.value?.trim();
-        const gistId = this.elements.gistIdInput?.value?.trim();
-        
-        if (token) this.gistAPI.setToken(token);
-        if (gistId) this.gistAPI.setGistId(gistId);
-        
-        this.render();
-        
-        if (this.gistAPI.isConfigured()) {
-            await this.testConnection();
-        }
-    }
-
-    async testConnection() {
-        this.showSyncIndicator('Testing connection...');
-        
-        const isConnected = await this.gistAPI.testConnection();
-        
-        if (isConnected) {
-            this.showSyncIndicator('✓ Connection successful', 2000);
-            await this.loadData();
-            this.render();
-        } else {
-            this.showError('Connection failed. Check your token and Gist ID.');
-        }
+    renderAllSlideTags() {
+        const slideCards = document.querySelectorAll('.slide-card');
+        slideCards.forEach(card => {
+            const slideId = card.dataset.slide;
+            if (slideId) {
+                this.renderSlideTagsForSlide(slideId);
+            }
+        });
     }
 
     /**
-     * UI helper methods
+     * Render tags for a specific slide
      */
-    showSyncIndicator(message, duration = null) {
-        const indicator = this.elements.syncIndicator;
-        if (!indicator) return;
+    renderSlideTagsForSlide(slideId) {
+        const container = document.getElementById(`slide-tags-${slideId}`);
+        if (!container) return;
+
+        const tagIds = this.getTagsBySlide(slideId);
         
-        indicator.textContent = message;
-        indicator.classList.remove('hidden');
-        
-        if (duration) {
-            setTimeout(() => this.hideSyncIndicator(), duration);
+        if (tagIds.length === 0) {
+            container.innerHTML = '<span class="text-gray-400 text-sm">No tags</span>';
+            return;
         }
-    }
 
-    hideSyncIndicator() {
-        const indicator = this.elements.syncIndicator;
-        if (indicator) {
-            indicator.classList.add('hidden');
-        }
-    }
-
-    showError(message) {
-        // Simple error display - could be enhanced with toast notifications
-        console.error(message);
-        alert(message);
-    }
-
-    hasUnsavedChanges() {
-        // Simple check - could be enhanced with proper change tracking
-        return true;
+        container.innerHTML = tagIds.map(tagId => {
+            const tag = this.data.tags[tagId];
+            if (!tag) return '';
+            
+            const colorClass = this.getTagColorClass(tag.color);
+            return `
+                <span class="slide-tag ${colorClass} cursor-pointer" 
+                      data-tag="${tagId}" 
+                      title="Click to filter">
+                    ${tag.name}
+                </span>
+            `;
+        }).join('');
     }
 }
 
