@@ -12,7 +12,7 @@ export const slideMetadata = [
     duration: '15分',
     level: 'intermediate',
     language: 'ja',
-    tags: ['default-tech', 'sre', 'conference'] // タグ機能追加
+    tags: ['default-tech', 'sre', 'conference']
   },
   {
     name: 'slidev-system',
@@ -24,7 +24,19 @@ export const slideMetadata = [
     duration: '20分',
     level: 'beginner',
     language: 'ja',
-    tags: ['default-tech', 'default-business', 'slidev', 'vercel'] // タグ機能追加
+    tags: ['default-tech', 'default-business', 'slidev', 'vercel']
+  },
+  {
+    name: 'smart-tag-system',
+    title: 'Smart Tag System - GitHub Gist連携による自動永続化',
+    description: 'スライド管理システムの革新的なタグシステム：設計思想から実装まで',
+    date: '2025-07-20',
+    author: 'Satoru Akita',
+    category: 'system-design',
+    duration: '25分',
+    level: 'intermediate', 
+    language: 'ja',
+    tags: ['default-tech', 'github', 'api', 'ux']
   }
 ];
 
