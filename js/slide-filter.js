@@ -1,6 +1,6 @@
 /**
- * Slide Filter - Integrated filtering and search functionality
- * Works with TagManager for seamless tag-based filtering
+ * Slide Filter - Simple search and tag filtering
+ * Works with TagManager for GitHub Gist tags
  */
 
 class SlideFilter {
@@ -8,7 +8,6 @@ class SlideFilter {
         this.activeFilters = new Set();
         this.searchTerm = '';
         this.allSlides = [];
-        this.slideElements = [];
         
         this.init();
     }
@@ -21,7 +20,6 @@ class SlideFilter {
         if (window.tagManager) {
             this.setup();
         } else {
-            // Wait and retry
             setTimeout(() => this.init(), 100);
         }
     }
@@ -60,49 +58,30 @@ class SlideFilter {
             });
         }
 
-        // Tag filter clicks
+        // Tag clicks for filtering
         document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('filter-tag')) {
-                this.toggleTagFilter(e.target.dataset.tag, e.target);
-            } else if (e.target.classList.contains('slide-tag')) {
-                // Clicking slide tags also applies filter
-                this.applyTagFilter(e.target.dataset.tag);
+            if (e.target.classList.contains('slide-tag') && !e.target.classList.contains('add-tag-btn')) {
+                // Don't filter if it's a removable tag (let the remove action happen)
+                if (!e.target.classList.contains('removable')) {
+                    const tagId = e.target.dataset.tag;
+                    if (tagId) {
+                        this.toggleTagFilter(tagId);
+                    }
+                }
             }
         });
-
-        // Clear filters button
-        const clearBtn = document.querySelector('[onclick*="clearAllFilters"]');
-        if (clearBtn) {
-            clearBtn.onclick = () => this.clearAllFilters();
-        }
     }
 
     /**
      * Toggle tag filter on/off
      */
-    toggleTagFilter(tagId, element) {
+    toggleTagFilter(tagId) {
         if (this.activeFilters.has(tagId)) {
             this.activeFilters.delete(tagId);
-            element.classList.remove('active');
         } else {
             this.activeFilters.add(tagId);
-            element.classList.add('active');
         }
         this.applyFilters();
-    }
-
-    /**
-     * Apply tag filter (always on)
-     */
-    applyTagFilter(tagId) {
-        if (!this.activeFilters.has(tagId)) {
-            this.activeFilters.add(tagId);
-            const filterElement = document.querySelector(`[data-tag="${tagId}"].filter-tag`);
-            if (filterElement) {
-                filterElement.classList.add('active');
-            }
-            this.applyFilters();
-        }
     }
 
     /**
@@ -112,16 +91,10 @@ class SlideFilter {
         this.activeFilters.clear();
         this.searchTerm = '';
         
-        // Clear search input
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
             searchInput.value = '';
         }
-        
-        // Clear active filter tags
-        document.querySelectorAll('.filter-tag.active').forEach(tag => {
-            tag.classList.remove('active');
-        });
         
         this.applyFilters();
     }
@@ -156,7 +129,6 @@ class SlideFilter {
     matchesTagFilter(slideId) {
         if (this.activeFilters.size === 0) return true;
         
-        // Get slide tags from TagManager
         if (window.tagManager) {
             const slideTags = window.tagManager.getTagsBySlide(slideId);
             return Array.from(this.activeFilters).some(filterTag => 
@@ -177,7 +149,11 @@ class SlideFilter {
         
         const counter = document.getElementById('resultsCounter');
         if (counter) {
-            counter.textContent = `Showing ${count} of ${this.allSlides.length} presentations`;
+            if (this.activeFilters.size > 0 || this.searchTerm) {
+                counter.textContent = `Showing ${count} of ${this.allSlides.length}`;
+            } else {
+                counter.textContent = `${this.allSlides.length} presentations`;
+            }
         }
     }
 
@@ -209,94 +185,6 @@ class SlideFilter {
     }
 
     /**
-     * Open tag editor for a specific slide
-     */
-    editSlideTags(slideId) {
-        if (!window.tagManager) {
-            alert('Tag manager not available');
-            return;
-        }
-
-        const currentTags = window.tagManager.getTagsBySlide(slideId);
-        const allTags = window.tagManager.data.tags;
-        
-        // Create simple modal for tag editing
-        this.showTagEditor(slideId, currentTags, allTags);
-    }
-
-    /**
-     * Show tag editor modal
-     */
-    showTagEditor(slideId, currentTags, allTags) {
-        // Remove existing modal if any
-        const existingModal = document.getElementById('tagEditorModal');
-        if (existingModal) {
-            existingModal.remove();
-        }
-
-        // Create modal HTML
-        const modalHTML = `
-            <div id="tagEditorModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-                    <h3 class="text-lg font-bold text-gray-800 mb-4">Edit Tags for Slide</h3>
-                    <div class="space-y-3 max-h-60 overflow-y-auto">
-                        ${Object.entries(allTags).map(([tagId, tag]) => {
-                            const isChecked = currentTags.includes(tagId);
-                            const colorClass = window.tagManager.getTagColorClass(tag.color);
-                            return `
-                                <label class="flex items-center space-x-3 cursor-pointer">
-                                    <input type="checkbox" ${isChecked ? 'checked' : ''} 
-                                           data-tag-id="${tagId}" class="rounded">
-                                    <span class="slide-tag ${colorClass}">${tag.name}</span>
-                                </label>
-                            `;
-                        }).join('')}
-                    </div>
-                    <div class="flex justify-end space-x-2 mt-6">
-                        <button onclick="this.closest('#tagEditorModal').remove()" 
-                                class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
-                            Cancel
-                        </button>
-                        <button onclick="slideFilter.saveTagChanges('${slideId}')" 
-                                class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
-                            Save Changes
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // Add modal to page
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-    }
-
-    /**
-     * Save tag changes from modal
-     */
-    saveTagChanges(slideId) {
-        const modal = document.getElementById('tagEditorModal');
-        const checkboxes = modal.querySelectorAll('input[type="checkbox"]');
-        
-        const newTags = Array.from(checkboxes)
-            .filter(cb => cb.checked)
-            .map(cb => cb.dataset.tagId);
-
-        // Update tags in TagManager
-        if (window.tagManager) {
-            window.tagManager.data.assignments[slideId] = newTags;
-            window.tagManager.scheduleAutoSave();
-            window.tagManager.renderSlideTagsForSlide(slideId);
-            window.tagManager.renderTags(); // Update tag counts
-        }
-
-        // Update display
-        this.updateDisplay();
-        
-        // Close modal
-        modal.remove();
-    }
-
-    /**
      * Refresh filter display (called when tags change)
      */
     refresh() {
@@ -309,7 +197,6 @@ window.slideFilter = null;
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    // Wait a bit for TagManager to initialize
     setTimeout(() => {
         window.slideFilter = new SlideFilter();
     }, 200);
