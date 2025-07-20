@@ -1,6 +1,6 @@
 /**
- * Tag Manager - Hybrid Tag Management System
- * Primary: GitHub Gist (public sharing) + Fallback: LocalStorage (offline/no-config)
+ * Tag Manager - Simple GitHub Gist Tag Management
+ * スライドカード内でのシンプルなタグ編集
  */
 
 class TagManager {
@@ -14,10 +14,6 @@ class TagManager {
         
         this.syncInProgress = false;
         this.autoSaveTimeout = null;
-        this.isInitialized = false;
-        
-        // Cache DOM elements
-        this.elements = {};
         
         this.init();
     }
@@ -26,30 +22,9 @@ class TagManager {
      * Initialize the tag manager
      */
     async init() {
-        this.cacheElements();
         this.bindEvents();
         await this.loadData();
-        this.isInitialized = true;
-        this.render();
         this.renderAllSlideTags();
-    }
-
-    /**
-     * Cache frequently used DOM elements
-     */
-    cacheElements() {
-        this.elements = {
-            configPanel: document.getElementById('configPanel'),
-            tokenInput: document.getElementById('githubToken'),
-            gistIdInput: document.getElementById('gistId'),
-            saveConfigBtn: document.getElementById('saveConfig'),
-            testConnectionBtn: document.getElementById('testConnection'),
-            statusDisplay: document.getElementById('connectionStatus'),
-            tagsContainer: document.getElementById('tagsContainer'),
-            addTagBtn: document.getElementById('addTag'),
-            newTagInput: document.getElementById('newTagName'),
-            syncIndicator: document.getElementById('syncIndicator')
-        };
     }
 
     /**
@@ -57,54 +32,36 @@ class TagManager {
      */
     bindEvents() {
         // Configuration events
-        this.elements.saveConfigBtn?.addEventListener('click', () => this.saveConfig());
-        this.elements.testConnectionBtn?.addEventListener('click', () => this.testConnection());
-        
-        // Tag creation events
-        this.elements.addTagBtn?.addEventListener('click', () => this.addTag());
-        this.elements.newTagInput?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.addTag();
-        });
+        document.getElementById('saveConfig')?.addEventListener('click', () => this.saveConfig());
+        document.getElementById('testConnection')?.addEventListener('click', () => this.testConnection());
 
         // Auto-save on page unload
         window.addEventListener('beforeunload', () => {
-            if (this.hasUnsavedChanges()) {
-                this.saveData();
+            if (this.syncInProgress) {
+                // Block page unload if sync in progress
+                event.preventDefault();
+                event.returnValue = '';
             }
         });
     }
 
     /**
-     * Load data with Hybrid strategy: Gist (primary) + LocalStorage (fallback)
+     * Load data from GitHub Gist
      */
     async loadData() {
-        let dataLoaded = false;
-        
-        // Try GitHub Gist first if configured
-        if (this.gistAPI.isConfigured()) {
-            try {
-                this.showSyncIndicator('Loading from GitHub Gist...');
-                this.data = await this.gistAPI.loadData();
-                this.hideSyncIndicator();
-                dataLoaded = true;
-                console.log('✅ Loaded tag data from GitHub Gist');
-            } catch (error) {
-                console.error('❌ Failed to load from Gist:', error);
-                this.showError('Failed to load from GitHub Gist, using local storage');
-            }
+        if (!this.gistAPI.isConfigured()) {
+            console.log('⚠️ GitHub Gist not configured');
+            return;
         }
-        
-        // Fallback to localStorage
-        if (!dataLoaded) {
-            const stored = localStorage.getItem('tag-data');
-            if (stored) {
-                try {
-                    this.data = JSON.parse(stored);
-                    console.log('✅ Loaded tag data from LocalStorage');
-                } catch (error) {
-                    console.error('❌ Failed to parse localStorage data:', error);
-                }
-            }
+
+        try {
+            this.showSyncIndicator('Loading tags...');
+            this.data = await this.gistAPI.loadData();
+            this.hideSyncIndicator();
+            console.log('✅ Loaded tag data from GitHub Gist');
+        } catch (error) {
+            console.error('❌ Failed to load from Gist:', error);
+            this.showSyncIndicator('❌ Failed to load tags', 2000);
         }
         
         // Ensure data structure
@@ -113,28 +70,26 @@ class TagManager {
     }
 
     /**
-     * Save data with Hybrid strategy: Always LocalStorage + Gist if configured
+     * Save data to GitHub Gist
      */
     async saveData() {
+        if (!this.gistAPI.isConfigured()) {
+            this.showSyncIndicator('❌ GitHub not configured', 2000);
+            return;
+        }
+
         if (this.syncInProgress) return;
         
         this.syncInProgress = true;
         
         try {
-            // Always save to localStorage first (immediate feedback)
+            this.showSyncIndicator('Saving...');
             this.data.lastUpdated = new Date().toISOString();
-            localStorage.setItem('tag-data', JSON.stringify(this.data));
-            
-            // Save to Gist if configured
-            if (this.gistAPI.isConfigured()) {
-                this.showSyncIndicator('Syncing to GitHub Gist...');
-                await this.gistAPI.saveData(this.data);
-                this.showSyncIndicator('✅ Synced to GitHub Gist', 2000);
-                console.log('✅ Synced to GitHub Gist');
-            }
+            await this.gistAPI.saveData(this.data);
+            this.showSyncIndicator('✅ Saved', 1000);
         } catch (error) {
-            console.error('❌ Failed to sync to GitHub Gist:', error);
-            this.showError('Failed to sync to GitHub (saved locally)');
+            console.error('❌ Failed to save to Gist:', error);
+            this.showSyncIndicator('❌ Save failed', 2000);
         } finally {
             this.syncInProgress = false;
         }
@@ -150,84 +105,57 @@ class TagManager {
         
         this.autoSaveTimeout = setTimeout(() => {
             this.saveData();
-        }, 2000); // Save after 2 seconds of inactivity
+        }, 1000);
     }
 
     /**
-     * Add a new tag
+     * Add a new tag to a slide
      */
-    addTag() {
-        const input = this.elements.newTagInput;
-        const name = input?.value?.trim();
+    async addTagToSlide(slideId) {
+        const tagName = prompt('Enter tag name:');
+        if (!tagName || !tagName.trim()) return;
         
-        if (!name) return;
-        
+        const name = tagName.trim();
         const tagId = this.generateTagId(name);
         
-        if (this.data.tags[tagId]) {
-            this.showError('Tag already exists');
-            return;
+        // Create tag if it doesn't exist
+        if (!this.data.tags[tagId]) {
+            this.data.tags[tagId] = {
+                name: name,
+                color: this.getRandomColor(),
+                createdAt: new Date().toISOString()
+            };
         }
         
-        this.data.tags[tagId] = {
-            name: name,
-            color: this.getRandomColor(),
-            createdAt: new Date().toISOString()
-        };
-        
-        input.value = '';
-        this.render();
-        this.renderAllSlideTags();
-        this.scheduleAutoSave();
-    }
-
-    /**
-     * Remove a tag
-     */
-    removeTag(tagId) {
-        if (!confirm(`Remove tag "${this.data.tags[tagId]?.name}"?`)) return;
-        
-        // Remove from assignments
-        Object.keys(this.data.assignments).forEach(slideId => {
-            this.data.assignments[slideId] = this.data.assignments[slideId].filter(id => id !== tagId);
-        });
-        
-        // Remove tag definition
-        delete this.data.tags[tagId];
-        
-        this.render();
-        this.renderAllSlideTags();
-        this.scheduleAutoSave();
-    }
-
-    /**
-     * Toggle tag assignment for a slide
-     */
-    toggleSlideTag(slideId, tagId) {
+        // Add tag to slide
         if (!this.data.assignments[slideId]) {
             this.data.assignments[slideId] = [];
         }
         
-        const assignments = this.data.assignments[slideId];
-        const index = assignments.indexOf(tagId);
-        
-        if (index === -1) {
-            assignments.push(tagId);
-        } else {
-            assignments.splice(index, 1);
+        if (!this.data.assignments[slideId].includes(tagId)) {
+            this.data.assignments[slideId].push(tagId);
+            this.renderSlideTagsForSlide(slideId);
+            this.scheduleAutoSave();
         }
-        
-        this.renderSlideTagsForSlide(slideId);
-        this.scheduleAutoSave();
     }
 
     /**
-     * Get slides assigned to a specific tag
+     * Remove a tag from a slide
      */
-    getSlidesByTag(tagId) {
-        return Object.keys(this.data.assignments).filter(slideId =>
-            this.data.assignments[slideId] && this.data.assignments[slideId].includes(tagId)
-        );
+    removeTagFromSlide(slideId, tagId) {
+        const tag = this.data.tags[tagId];
+        if (!tag) return;
+
+        if (!confirm(`Remove "${tag.name}" tag from this slide?`)) return;
+        
+        if (!this.data.assignments[slideId]) return;
+        
+        const index = this.data.assignments[slideId].indexOf(tagId);
+        if (index !== -1) {
+            this.data.assignments[slideId].splice(index, 1);
+            this.renderSlideTagsForSlide(slideId);
+            this.scheduleAutoSave();
+        }
     }
 
     /**
@@ -270,75 +198,6 @@ class TagManager {
     }
 
     /**
-     * Render the tag management UI
-     */
-    render() {
-        this.renderConfigurationStatus();
-        this.renderTags();
-        this.renderSlideFilters();
-    }
-
-    /**
-     * Render configuration status
-     */
-    renderConfigurationStatus() {
-        const status = this.gistAPI.getStatus();
-        const statusEl = this.elements.statusDisplay;
-        
-        if (!statusEl) return;
-        
-        if (status.isConfigured) {
-            statusEl.innerHTML = '<span class="text-green-600">✅ Connected to GitHub Gist</span>';
-        } else {
-            statusEl.innerHTML = '<span class="text-yellow-600">⚠️ Using LocalStorage only</span>';
-        }
-    }
-
-    /**
-     * Render all tags in management section
-     */
-    renderTags() {
-        const container = this.elements.tagsContainer;
-        if (!container) return;
-        
-        const tags = Object.entries(this.data.tags);
-        
-        if (tags.length === 0) {
-            container.innerHTML = '<p class="text-gray-500 text-sm">No tags created yet</p>';
-            return;
-        }
-        
-        container.innerHTML = tags.map(([tagId, tag]) => `
-            <div class="tag-item flex items-center justify-between p-2 border rounded ${this.getTagColorClass(tag.color)}">
-                <span class="font-medium">${tag.name}</span>
-                <div class="flex items-center space-x-2">
-                    <span class="text-xs opacity-75">${this.getSlidesByTag(tagId).length} slides</span>
-                    <button onclick="tagManager.removeTag('${tagId}')" 
-                            class="text-red-600 hover:text-red-800 text-sm">×</button>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    /**
-     * Render slide filters (for main page integration)
-     */
-    renderSlideFilters() {
-        const filterContainer = document.getElementById('tagFilters');
-        if (!filterContainer) return;
-        
-        const tags = Object.entries(this.data.tags);
-        
-        filterContainer.innerHTML = tags.map(([tagId, tag]) => `
-            <button class="filter-tag px-3 py-1 rounded-full text-sm border-2 border-dashed transition-all
-                           ${this.getTagColorClass(tag.color)} hover:scale-105"
-                    data-tag="${tagId}">
-                ${tag.name}
-            </button>
-        `).join('');
-    }
-
-    /**
      * Render tags for all slides
      */
     renderAllSlideTags() {
@@ -352,7 +211,7 @@ class TagManager {
     }
 
     /**
-     * Render tags for a specific slide
+     * Render tags for a specific slide (inline editing)
      */
     renderSlideTagsForSlide(slideId) {
         const container = document.getElementById(`slide-tags-${slideId}`);
@@ -360,39 +219,41 @@ class TagManager {
 
         const tagIds = this.getTagsBySlide(slideId);
         
-        if (tagIds.length === 0) {
-            container.innerHTML = '<span class="text-gray-400 text-sm">No tags</span>';
-            return;
-        }
-
-        container.innerHTML = tagIds.map(tagId => {
+        // Render existing tags
+        const tagsHTML = tagIds.map(tagId => {
             const tag = this.data.tags[tagId];
             if (!tag) return '';
             
             const colorClass = this.getTagColorClass(tag.color);
             return `
-                <span class="slide-tag ${colorClass} cursor-pointer" 
-                      data-tag="${tagId}" 
-                      title="Click to filter">
+                <span class="slide-tag ${colorClass} removable" 
+                      onclick="tagManager.removeTagFromSlide('${slideId}', '${tagId}')"
+                      title="Click to remove">
                     ${tag.name}
                 </span>
             `;
         }).join('');
+        
+        // Add the "Add Tag" button
+        const addButtonHTML = `
+            <button class="add-tag-btn" 
+                    onclick="tagManager.addTagToSlide('${slideId}')"
+                    title="Add new tag">
+                + Add
+            </button>
+        `;
+        
+        container.innerHTML = tagsHTML + addButtonHTML;
     }
 
     /**
      * Configuration methods
      */
     async saveConfig() {
-        const token = this.elements.tokenInput?.value?.trim();
-        const gistId = this.elements.gistIdInput?.value?.trim();
+        const token = document.getElementById('githubToken')?.value?.trim();
         
-        if (token) this.gistAPI.setToken(token);
-        if (gistId) this.gistAPI.setGistId(gistId);
-        
-        this.render();
-        
-        if (this.gistAPI.isConfigured()) {
+        if (token) {
+            this.gistAPI.setToken(token);
             await this.testConnection();
         }
     }
@@ -403,13 +264,23 @@ class TagManager {
         const isConnected = await this.gistAPI.testConnection();
         
         if (isConnected) {
-            this.showSyncIndicator('✅ Connection successful', 2000);
-            // Merge local data with gist data
+            this.showSyncIndicator('✅ Connected', 2000);
             await this.loadData();
-            this.render();
             this.renderAllSlideTags();
+            this.updateConnectionStatus('✅ Connected to GitHub');
         } else {
-            this.showError('Connection failed. Check your token and Gist ID.');
+            this.showSyncIndicator('❌ Connection failed', 2000);
+            this.updateConnectionStatus('❌ Connection failed');
+        }
+    }
+
+    /**
+     * Update connection status display
+     */
+    updateConnectionStatus(message) {
+        const statusEl = document.getElementById('connectionStatus');
+        if (statusEl) {
+            statusEl.textContent = message;
         }
     }
 
@@ -417,7 +288,7 @@ class TagManager {
      * UI helper methods
      */
     showSyncIndicator(message, duration = null) {
-        const indicator = this.elements.syncIndicator;
+        const indicator = document.getElementById('syncIndicator');
         if (!indicator) return;
         
         indicator.textContent = message;
@@ -429,20 +300,10 @@ class TagManager {
     }
 
     hideSyncIndicator() {
-        const indicator = this.elements.syncIndicator;
+        const indicator = document.getElementById('syncIndicator');
         if (indicator) {
             indicator.classList.add('hidden');
         }
-    }
-
-    showError(message) {
-        console.error(message);
-        // Show as toast notification instead of alert for better UX
-        this.showSyncIndicator(`❌ ${message}`, 3000);
-    }
-
-    hasUnsavedChanges() {
-        return true; // Simplified check
     }
 }
 
