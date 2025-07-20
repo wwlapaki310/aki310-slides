@@ -4,6 +4,17 @@ import path from 'path';
 // Slide metadata for personal use
 const slideMetadata = [
     {
+        name: 'sre-next-2025',
+        title: 'SRE NEXT 2025 - NoC Staff Experience',
+        description: 'Experience report from working as NoC staff at SRE NEXT 2025 and presentation introduction',
+        date: '2025-07-17',
+        author: 'Satoru Akita',
+        category: 'tech-talk',
+        duration: '15 min',
+        level: 'intermediate',
+        language: 'ja'
+    },
+    {
         name: 'slidev-system',
         title: 'Slidev × Vercel Multi-Slide Management System',
         description: 'A comprehensive system for efficiently managing multiple Slidev presentations in one repository',
