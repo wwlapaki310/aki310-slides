@@ -7,7 +7,7 @@
 - 📊 **統一管理**: 1つのリポジトリで複数のslidevプレゼンテーションを管理
 - 🚀 **自動デプロイ**: Vercelでの自動ビルド・デプロイ
 - 🔍 **検索機能**: タイトルや内容での検索
-- 🏷️ **タグシステム**: プレゼンテーションの分類・フィルタリング機能
+- 🏷️ **スマートタグシステム**: GitHub Gist連携による自動永続化
 - 📱 **レスポンシブ**: モバイル対応のクリーンなUI
 - 🎨 **プレビュー生成**: 各スライドの自動プレビュー画像生成
 
@@ -20,37 +20,99 @@
 │   └── presentation-2/
 │       └── src/          # Slidev プロジェクト
 ├── scripts/
-│   ├── build-index.js           # インデックスページ生成
-│   ├── generate-previews.js     # プレビュー画像生成
-│   ├── create-slide.js          # 新規スライド作成
-│   └── slide-metadata.json     # スライドメタデータ
+│   └── build-index.js           # インデックスページ生成
+├── js/
+│   ├── gist-api.js              # GitHub Gist API wrapper
+│   ├── tag-manager.js           # タグ管理ロジック
+│   └── slide-filter.js          # フィルタリング機能
 ├── config/
 │   └── slides-metadata.js      # スライドメタデータ設定
-├── manage-tags.html             # タグ管理ページ
-├── assign-tags.html             # タグ割り当てページ
 ├── dist/                        # ビルド出力先
 └── vercel.json                  # Vercel設定
 ```
 
-## 🏷️ タグシステム
+## 🏷️ 革新的なタグシステム
 
-### タグ管理機能
-- **タグ作成・編集・削除**: `manage-tags.html`でタグを管理
-- **カラーリング**: 8色から選択可能（Blue, Green, Red, Yellow, Purple, Pink, Indigo, Gray）
-- **永続化**: LocalStorageを使用してタグ情報を保存
-- **使用状況確認**: どのスライドで使用されているかを確認
+### 🎯 設計コンセプト
+従来の複雑な管理ページや手動ファイル操作を排除し、**GitHub Gist API**を活用した完全自動化システムを実現。
 
-### タグ割り当て機能
-- **個別割り当て**: `assign-tags.html`で各スライドにタグを個別に割り当て
-- **一括操作**: 複数のスライドに同時にタグを追加・削除
-- **リアルタイム編集**: 変更がリアルタイムでプレビューに反映
-- **メタデータ更新**: 変更をJavaScriptファイルとしてエクスポート
+### 🔄 自動永続化の仕組み
 
-### フィルタリング機能
-- **タグフィルタ**: メインページでタグによるフィルタリング
-- **テキスト検索**: タイトルや説明での検索
-- **組み合わせ検索**: タグとテキスト検索の組み合わせ
-- **結果カウンタ**: フィルタ結果の件数表示
+#### データフロー
+```
+[ユーザー操作] 
+    ↓
+[TagManager] ← → [LocalStorage (即座)]
+    ↓ (2秒後の自動保存)
+[GistAPI] 
+    ↓
+[GitHub Gist (クラウド同期)]
+```
+
+#### ストレージ戦略
+- **Primary**: GitHub Gist (プライベート、無制限、全環境同期)
+- **Fallback**: LocalStorage (オフライン対応、デバイス固有)
+- **Sync**: Personal Access Token認証による自動同期
+
+### 📊 データ構造
+
+#### GitHub Gistに保存されるJSON形式
+```json
+{
+  "tags": {
+    "tech": {
+      "name": "Tech",
+      "color": "blue", 
+      "description": "技術系の発表",
+      "createdAt": "2025-07-20T12:00:00Z"
+    },
+    "business": {
+      "name": "Business",
+      "color": "green",
+      "description": "ビジネス系の発表", 
+      "createdAt": "2025-07-20T12:05:00Z"
+    }
+  },
+  "assignments": {
+    "sre-next-2025": ["tech", "sre"],
+    "slidev-system": ["tech", "business", "tools"]
+  },
+  "lastUpdated": "2025-07-20T12:10:00Z"
+}
+```
+
+### 🎮 ユーザーインターフェース
+
+#### ワンページ完結設計
+- **統合UI**: 全機能をメインページに集約
+- **インライン編集**: スライドカード内でのダイレクト編集
+- **モーダル編集**: 直感的なチェックボックス操作
+- **リアルタイム反映**: 変更の即座な視覚化
+
+#### インタラクション設計
+1. **タグ作成**: メインページ上部の入力フィールド
+2. **タグ編集**: 各スライドの"Edit Tags"ボタン
+3. **フィルタリング**: タグクリックによる即座フィルタ
+4. **検索**: テキスト + タグフィルタの組み合わせ
+
+### 🔧 技術仕様
+
+#### Core Technologies
+- **GitHub Gist API**: RESTful API (v3)
+- **Authentication**: Personal Access Token (gist scope)
+- **Frontend**: Vanilla JavaScript (ES6+)
+- **Styling**: Tailwind CSS
+- **Storage**: Dual-layer (Gist + LocalStorage)
+
+#### API Rate Limiting
+- **GitHub API Limit**: 5,000 requests/hour (認証済み)
+- **Auto-save Strategy**: デバウンス処理 (2秒間隔)
+- **Batch Operations**: 複数変更の自動まとめ
+
+#### Error Handling
+- **Network Errors**: LocalStorageフォールバック
+- **Authentication Errors**: ユーザー通知 + ローカル継続
+- **Data Conflicts**: Last-write-wins戦略
 
 ## 🚀 セットアップ
 
@@ -68,28 +130,24 @@ cd aki310-slides
 npm install
 ```
 
-### 3. 新しいスライドの作成
+### 3. GitHub Gist連携設定（推奨）
+
+1. [GitHub Personal Access Token](https://github.com/settings/tokens)を作成
+   - Scope: `gist` (必須)
+   - Expiration: お好みで設定
+2. メインページの「Settings」ボタンをクリック
+3. Tokenを入力して「Save Configuration」
+4. 「Test Connection」で接続確認
+
+> **Note**: Token設定は任意です。設定しない場合はLocalStorageのみで動作します。
+
+### 4. 新しいスライドの作成
 
 ```bash
 npm run create-slide
 ```
 
-対話的に以下を入力:
-- スライド名 (ディレクトリ名)
-- タイトル
-- 説明
-- カテゴリ
-- タグ (作成済みのタグから選択)
-
-### 4. スライドの開発
-
-```bash
-# 特定のスライドの開発サーバー起動
-cd slides/your-slide-name/src
-npm run dev
-```
-
-### 5. ビルドとプレビュー生成
+### 5. ビルドとデプロイ
 
 ```bash
 # 全体のビルド
@@ -101,108 +159,65 @@ npm run generate-previews
 
 ## 🏷️ タグシステムの使用方法
 
-### 1. タグの作成・管理
+### 1. 初回セットアップ（推奨）
 
-1. `manage-tags.html`にアクセス
-2. 「新しいタグを作成」フォームでタグを追加
-3. タグ名、カラー、説明を設定
-4. 既存タグの編集・削除も可能
+1. メインページにアクセス
+2. ヘッダーの「Settings」ボタンをクリック
+3. GitHub Personal Access Tokenを入力
+4. 「Save Configuration」→「Test Connection」で確認
 
-### 2. スライドへのタグ割り当て
+### 2. タグの作成・管理
 
-1. `assign-tags.html`にアクセス
-2. 各スライドに表示される「タグを追加」エリアからタグを選択
-3. 不要なタグは「×」ボタンで削除
-4. 一括操作で複数のスライドに同時にタグを適用
-5. 「変更を保存」で新しいメタデータファイルをダウンロード
-6. ダウンロードしたファイルを`config/slides-metadata.js`に置き換え
+#### 新しいタグの作成
+1. 「Tag Management」セクションの入力フィールドに名前を入力
+2. 「Add Tag」ボタンをクリック
+3. 自動的にランダムカラーが割り当てられます
 
-### 3. タグによるフィルタリング
+#### タグの削除
+1. タグ一覧の「×」ボタンをクリック
+2. 確認ダイアログで削除を確定
+3. 関連付けられたスライドからも自動削除
 
-1. メインページの「Filter & Search」セクションを使用
-2. タグをクリックしてフィルタを適用
-3. 検索ボックスでテキスト検索
-4. 「Clear All Filters」ですべてのフィルタをリセット
+### 3. スライドへのタグ割り当て
 
-### 4. タグデータの永続化
+#### インライン編集
+1. 各スライドカードの「Edit Tags」をクリック
+2. モーダルでチェックボックスを操作
+3. 「Save Changes」で確定
 
-タグシステムは以下の方法でデータを永続化します：
+#### ワンクリックフィルタ
+- スライドのタグをクリック → 即座にフィルタ適用
+- フィルタバーのタグをクリック → ON/OFF切り替え
 
-#### LocalStorageによる一時保存
-- ブラウザのLocalStorageにタグ定義を保存
-- タグの作成・編集・削除が即座に反映
-- ブラウザ間での同期は不要（個人使用のため）
+### 4. 検索・フィルタリング
 
-#### ファイルによる永続化
-- `config/slides-metadata.js`: スライドとタグの関連付け
-- タグ割り当て変更時にファイルをダウンロード
-- 手動でリポジトリに反映してデプロイ
+#### 組み合わせ検索
+- **テキスト検索**: タイトル・説明での部分一致
+- **タグフィルタ**: 複数タグのAND/OR検索
+- **リアルタイム**: 入力と同時に結果更新
 
-## 📝 スライドの追加方法
+#### フィルタのクリア
+- 「Clear All Filters」ボタンで一括リセット
+- 個別タグクリックでON/OFF切り替え
 
-### 手動で追加する場合
+## 🔄 データ同期の仕組み
 
-1. `slides/` ディレクトリに新しいフォルダを作成
-2. `src/` サブディレクトリを作成
-3. 通常のSlidevプロジェクトとしてセットアップ
-4. `config/slides-metadata.js` にメタデータを追加
-5. `package.json` のスクリプトを更新
+### 自動保存プロセス
+1. **変更検知**: DOM操作やユーザーアクション
+2. **デバウンス**: 2秒間の待機（連続変更の集約）
+3. **LocalStorage**: 即座にローカル保存（UX向上）
+4. **Gist Sync**: バックグラウンドでクラウド同期
+5. **エラー処理**: 失敗時はローカルデータ保持
 
-### 自動作成スクリプトを使用する場合
+### 環境間同期
+- **Token共有**: 同じTokenを複数環境で使用
+- **即座同期**: ページロード時に最新データを取得
+- **競合解決**: Last-write-wins方式
 
-```bash
-npm run create-slide
-```
-
-## 🎨 カスタマイズ
-
-### スタイルの変更
-
-`scripts/build-index.js` 内のHTMLテンプレートとCSSを編集してください。
-
-### メタデータの追加
-
-`config/slides-metadata.js` でスライドの情報を管理:
-
-```json
-{
-  "name": "slide-directory-name",
-  "title": "スライドタイトル",
-  "description": "スライドの説明",
-  "date": "2025-07-19",
-  "author": "作成者名",
-  "category": "tech-talk",
-  "duration": "15分",
-  "level": "intermediate",
-  "language": "ja",
-  "tags": ["default-tech", "sre", "conference"]
-}
-```
-
-### タグカラーのカスタマイズ
-
-`scripts/build-index.js` 内のCSSスタイルでタグの色を変更可能:
-
-```css
-.tag.custom-tag {
-  background-color: #f0f9ff;
-  color: #0369a1;
-}
-```
-
-## 🚀 デプロイ
-
-### Vercelでのデプロイ
-
-1. GitHubリポジトリをVercelに接続
-2. ビルド設定は `vercel.json` に定義済み
-3. プッシュすると自動でデプロイされます
-
-### タグシステムのデプロイ注意点
-
-- LocalStorageのタグ情報は各環境で個別に管理
-- `config/slides-metadata.js`の変更は手動でコミット・プッシュが必要
-- 本番環境でのタグ管理は管理者が責任を持って実施
+### オフライン対応
+- **完全機能**: ネット接続なしでも全機能利用可能
+- **自動復旧**: 接続復旧時に自動的にGistと同期
+- **データ保護**: ローカルデータは常に保持
 
 ## 📋 利用可能なコマンド
 
@@ -228,51 +243,69 @@ npm run dev:slide-name
 
 ## 🛠️ 技術スタック
 
+### Core Technologies
 - **Slidev** v0.52.0 - プレゼンテーション作成
 - **Vue.js** 3.4+ - フロントエンド
 - **Vercel** - ホスティング
 - **Playwright** - プレビュー画像生成
 - **Tailwind CSS** - スタイリング
-- **Alpine.js** - タグ管理UI
-- **LocalStorage** - クライアントサイドデータ永続化
 
-## 📁 ディレクトリ構造詳細
-
-```
-├── slides/                      # 各プレゼンテーションのフォルダ
-│   └── slide-name/
-│       └── src/                 # Slidevプロジェクト本体
-│           ├── slides.md        # スライド内容
-│           ├── package.json     # Slidev設定
-│           └── ...
-├── scripts/                     # ビルドスクリプト
-├── config/                      # 設定ファイル
-│   └── slides-metadata.js       # スライドメタデータ
-├── manage-tags.html             # タグ管理ページ
-├── assign-tags.html             # タグ割り当てページ
-├── dist/                        # ビルド出力
-│   ├── index.html              # メインインデックス
-│   ├── slide-name/             # 各スライドのビルド結果
-│   └── previews/               # プレビュー画像
-└── vercel.json                 # Vercel設定
-```
+### Tag System Technologies
+- **GitHub Gist API** - クラウドストレージ
+- **Personal Access Token** - セキュア認証
+- **Vanilla JavaScript** - 軽量実装
+- **LocalStorage** - オフライン対応
+- **Debouncing** - パフォーマンス最適化
 
 ## 🔧 トラブルシューティング
 
-### タグが表示されない場合
-1. ブラウザのLocalStorageを確認
-2. `manage-tags.html`でタグが正しく作成されているか確認
-3. `config/slides-metadata.js`にタグIDが正しく設定されているか確認
+### GitHub連携関連
 
-### フィルタリングが動作しない場合
-1. JavaScriptコンソールでエラーをチェック
-2. タグIDの大文字小文字を確認
-3. ブラウザのキャッシュをクリア
+#### トークンエラー
+```
+GitHub API Error: 401 - Bad credentials
+```
+**解決方法**: 
+1. [Personal Access Token](https://github.com/settings/tokens)を再確認
+2. `gist` scopeが有効か確認
+3. トークンの有効期限をチェック
 
-### メタデータの変更が反映されない場合
-1. `assign-tags.html`で変更を保存
-2. ダウンロードしたファイルを正しいパスに配置
-3. ビルドを再実行
+#### レート制限
+```
+GitHub API Error: 403 - API rate limit exceeded
+```
+**解決方法**:
+1. しばらく待ってから再試行（1時間で5,000リクエスト制限）
+2. 自動保存の頻度を調整
+3. 一時的にローカルストレージのみで作業
+
+### データ関連
+
+#### タグが表示されない
+1. ブラウザのコンソールでエラーをチェック
+2. LocalStorageの内容を確認：`localStorage.getItem('tag-data')`
+3. Gist接続状況を「Test Connection」で確認
+
+#### フィルタリングが動作しない
+1. ページを再読み込み
+2. JavaScriptエラーをコンソールで確認
+3. ブラウザキャッシュをクリア
+
+#### 同期ができない
+1. ネットワーク接続を確認
+2. GitHubの状態をチェック（status.github.com）
+3. 「Settings」から再度接続テスト
+
+## 🚀 デプロイ
+
+### Vercelでのデプロイ
+
+1. GitHubリポジトリをVercelに接続
+2. ビルド設定は `vercel.json` に定義済み
+3. プッシュすると自動でデプロイされます
+
+### カスタムドメイン
+Vercelダッシュボードからカスタムドメインを設定可能です。
 
 ## 🤝 コントリビューション
 
@@ -294,4 +327,4 @@ MIT License - 詳細は [LICENSE](LICENSE) ファイルを参照してくださ�
 
 ---
 
-🎪 **Happy Presenting with Slidev!**
+🎪 **Happy Presenting with Slidev + Smart Tags!**
