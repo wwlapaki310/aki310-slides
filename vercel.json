@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/sre-next-2025/:path*", "destination": "/sre-next-2025/:path*" },
     { "source": "/slidev-system/:path*", "destination": "/slidev-system/:path*" }
   ]
 }
