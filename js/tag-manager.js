@@ -51,7 +51,8 @@ class TagManager {
      */
     async loadData() {
         if (!this.gistAPI.isConfigured()) {
-            console.log('⚠️ GitHub Gist not configured - showing Add buttons only');
+            console.log('⚠️ GitHub token not configured - showing local mode');
+            this.updateConnectionStatus('Not configured - using local storage only');
             return;
         }
 
@@ -59,10 +60,12 @@ class TagManager {
             this.showSyncIndicator('Loading tags...');
             this.data = await this.gistAPI.loadData();
             this.hideSyncIndicator();
+            this.updateConnectionStatus('✅ Connected to GitHub');
             console.log('✅ Loaded tag data from GitHub Gist');
         } catch (error) {
             console.error('❌ Failed to load from Gist:', error);
             this.showSyncIndicator('❌ Failed to load tags', 2000);
+            this.updateConnectionStatus('❌ Connection failed - using local storage');
         }
         
         // Ensure data structure
@@ -115,7 +118,17 @@ class TagManager {
     async addTagToSlide(slideId) {
         // GitHub設定の確認
         if (!this.gistAPI.isConfigured()) {
-            alert('Please configure GitHub settings first (⚙️ button in top-right corner)');
+            this.showGitHubSetupGuide();
+            return;
+        }
+
+        // Gist存在確認・自動作成
+        this.showSyncIndicator('Initializing GitHub storage...');
+        const gistReady = await this.gistAPI.ensureGistExists();
+        this.hideSyncIndicator();
+        
+        if (!gistReady) {
+            alert('Failed to initialize GitHub storage. Please check your Personal Access Token and try again.');
             return;
         }
 
@@ -143,6 +156,36 @@ class TagManager {
             this.data.assignments[slideId].push(tagId);
             this.renderSlideTagsForSlide(slideId);
             this.scheduleAutoSave();
+        }
+    }
+
+    /**
+     * Show GitHub setup guide
+     */
+    showGitHubSetupGuide() {
+        const message = `🔧 GitHub Setup Required for Tag Persistence
+
+To use tags, please:
+
+1. Click the ⚙️ Settings button (top-right corner)
+2. Create a GitHub Personal Access Token:
+   • Go to https://github.com/settings/tokens
+   • Generate new token (classic)
+   • Enable 'gist' scope
+   • Copy the token
+3. Paste the token in the settings and click 'Save'
+4. Click 'Test' to verify connection
+
+Tags will be automatically saved to your private GitHub Gist!
+
+Would you like to open the settings panel now?`;
+
+        if (confirm(message)) {
+            // Open settings panel
+            const configPanel = document.getElementById('configPanel');
+            if (configPanel) {
+                configPanel.classList.add('open');
+            }
         }
     }
 
@@ -253,10 +296,14 @@ class TagManager {
             </button>
         `;
         
-        // Show placeholder text if no tags and no GitHub config
+        // Show appropriate placeholder text
         let placeholderHTML = '';
-        if (tagIds.length === 0 && !this.gistAPI.isConfigured()) {
-            placeholderHTML = `<span class="text-gray-400 text-sm mr-2">No tags yet</span>`;
+        if (tagIds.length === 0) {
+            if (!this.gistAPI.isConfigured()) {
+                placeholderHTML = `<span class="text-gray-400 text-sm mr-2">Setup GitHub to add tags</span>`;
+            } else {
+                placeholderHTML = `<span class="text-gray-400 text-sm mr-2">No tags yet</span>`;
+            }
         }
         
         container.innerHTML = placeholderHTML + tagsHTML + addButtonHTML;
@@ -297,6 +344,16 @@ class TagManager {
         const statusEl = document.getElementById('connectionStatus');
         if (statusEl) {
             statusEl.textContent = message;
+            
+            // Update visual styling based on status
+            statusEl.className = 'text-xs';
+            if (message.includes('✅')) {
+                statusEl.classList.add('text-green-600');
+            } else if (message.includes('❌')) {
+                statusEl.classList.add('text-red-600');
+            } else {
+                statusEl.classList.add('text-gray-600');
+            }
         }
     }
 

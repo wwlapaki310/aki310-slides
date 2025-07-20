@@ -61,10 +61,42 @@ class GistAPI {
 
     /**
      * Check if API is properly configured
+     * Only requires token - Gist will be auto-created if needed
      * @returns {boolean}
      */
     isConfigured() {
-        return !!(this.token && this.gistId);
+        return !!this.token;
+    }
+
+    /**
+     * Ensure Gist exists, create if needed
+     * @returns {Promise<boolean>} Success status
+     */
+    async ensureGistExists() {
+        if (!this.token) {
+            return false;
+        }
+
+        if (this.gistId) {
+            // Test if existing Gist is accessible
+            try {
+                await this.makeRequest(`/gists/${this.gistId}`);
+                return true;
+            } catch (error) {
+                console.warn('Existing Gist not accessible, creating new one:', error);
+                this.gistId = null;
+            }
+        }
+
+        // Create new Gist if none exists or existing is inaccessible
+        try {
+            const gistId = await this.createGist();
+            console.log('✅ Created new Gist:', gistId);
+            return true;
+        } catch (error) {
+            console.error('❌ Failed to create Gist:', error);
+            return false;
+        }
     }
 
     /**
@@ -109,13 +141,15 @@ class GistAPI {
             tags: {},
             assignments: {},
             lastUpdated: new Date().toISOString(),
+            version: "1.0",
+            created: new Date().toISOString(),
             ...initialData
         };
 
         const response = await this.makeRequest('/gists', {
             method: 'POST',
             body: JSON.stringify({
-                description: 'Aki310 Slides - Tag Management Data',
+                description: 'Aki310 Slides - Tag Management Data (Auto-created)',
                 public: false,
                 files: {
                     [this.filename]: {
@@ -135,8 +169,8 @@ class GistAPI {
      * @returns {Promise<object>} Tag data
      */
     async loadData() {
-        if (!this.gistId) {
-            throw new Error('Gist ID not configured');
+        if (!await this.ensureGistExists()) {
+            throw new Error('Failed to ensure Gist exists');
         }
 
         try {
@@ -148,14 +182,23 @@ class GistAPI {
                 throw new Error(`File ${this.filename} not found in Gist`);
             }
 
-            return JSON.parse(file.content);
+            const data = JSON.parse(file.content);
+            
+            // Ensure data structure integrity
+            return {
+                tags: data.tags || {},
+                assignments: data.assignments || {},
+                lastUpdated: data.lastUpdated || new Date().toISOString(),
+                version: data.version || "1.0"
+            };
         } catch (error) {
             console.error('Failed to load data from Gist:', error);
             // Return default structure if loading fails
             return {
                 tags: {},
                 assignments: {},
-                lastUpdated: new Date().toISOString()
+                lastUpdated: new Date().toISOString(),
+                version: "1.0"
             };
         }
     }
@@ -166,15 +209,14 @@ class GistAPI {
      * @returns {Promise<void>}
      */
     async saveData(data) {
-        if (!this.gistId) {
-            // Create new Gist if none exists
-            await this.createGist(data);
-            return;
+        if (!await this.ensureGistExists()) {
+            throw new Error('Failed to ensure Gist exists');
         }
 
         const dataWithTimestamp = {
             ...data,
-            lastUpdated: new Date().toISOString()
+            lastUpdated: new Date().toISOString(),
+            version: data.version || "1.0"
         };
 
         await this.makeRequest(`/gists/${this.gistId}`, {
@@ -190,19 +232,24 @@ class GistAPI {
     }
 
     /**
-     * Check if Gist exists and is accessible
+     * Test connection with token validation and Gist accessibility
      * @returns {Promise<boolean>}
      */
     async testConnection() {
-        if (!this.isConfigured()) {
+        if (!this.token) {
             return false;
         }
 
         try {
-            await this.makeRequest(`/gists/${this.gistId}`);
-            return true;
+            // Test token validity by making a simple API call
+            await this.makeRequest('/user');
+            
+            // Ensure Gist exists (create if needed)
+            const gistReady = await this.ensureGistExists();
+            
+            return gistReady;
         } catch (error) {
-            console.error('Gist connection test failed:', error);
+            console.error('Connection test failed:', error);
             return false;
         }
     }
@@ -215,7 +262,8 @@ class GistAPI {
         return {
             hasToken: !!this.token,
             hasGistId: !!this.gistId,
-            isConfigured: this.isConfigured()
+            isConfigured: this.isConfigured(),
+            canCreateGist: !!this.token
         };
     }
 

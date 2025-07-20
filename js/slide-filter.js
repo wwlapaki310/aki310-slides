@@ -58,18 +58,40 @@ class SlideFilter {
             });
         }
 
-        // Tag clicks for filtering
+        // Tag clicks for filtering (improved event delegation)
         document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('slide-tag') && !e.target.classList.contains('add-tag-btn')) {
-                // Don't filter if it's a removable tag (let the remove action happen)
-                if (!e.target.classList.contains('removable')) {
-                    const tagId = e.target.dataset.tag;
+            // Only handle non-removable tag clicks for filtering
+            if (e.target.classList.contains('slide-tag') && 
+                !e.target.classList.contains('removable') && 
+                !e.target.classList.contains('add-tag-btn')) {
+                
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const tagText = e.target.textContent.trim();
+                if (tagText && window.tagManager) {
+                    // Find tag ID by name
+                    const tagId = this.findTagIdByName(tagText);
                     if (tagId) {
                         this.toggleTagFilter(tagId);
                     }
                 }
             }
         });
+    }
+
+    /**
+     * Find tag ID by name (helper method)
+     */
+    findTagIdByName(tagName) {
+        if (!window.tagManager || !window.tagManager.data.tags) return null;
+        
+        for (const [tagId, tagData] of Object.entries(window.tagManager.data.tags)) {
+            if (tagData.name === tagName) {
+                return tagId;
+            }
+        }
+        return null;
     }
 
     /**
@@ -82,6 +104,16 @@ class SlideFilter {
             this.activeFilters.add(tagId);
         }
         this.applyFilters();
+        this.updateFilterDisplay();
+    }
+
+    /**
+     * Update filter display to show active filters
+     */
+    updateFilterDisplay() {
+        // Visual feedback for active filters could be added here
+        // For now, we'll just update the results counter
+        console.log('Active filters:', Array.from(this.activeFilters));
     }
 
     /**
@@ -97,6 +129,7 @@ class SlideFilter {
         }
         
         this.applyFilters();
+        this.updateFilterDisplay();
     }
 
     /**
@@ -150,7 +183,14 @@ class SlideFilter {
         const counter = document.getElementById('resultsCounter');
         if (counter) {
             if (this.activeFilters.size > 0 || this.searchTerm) {
-                counter.textContent = `Showing ${count} of ${this.allSlides.length}`;
+                const filterInfo = [];
+                if (this.searchTerm) {
+                    filterInfo.push(`search: "${this.searchTerm}"`);
+                }
+                if (this.activeFilters.size > 0) {
+                    filterInfo.push(`${this.activeFilters.size} tag filter(s)`);
+                }
+                counter.innerHTML = `Showing ${count} of ${this.allSlides.length} <span class="text-sm text-gray-500">(${filterInfo.join(', ')})</span>`;
             } else {
                 counter.textContent = `${this.allSlides.length} presentations`;
             }
@@ -189,6 +229,18 @@ class SlideFilter {
      */
     refresh() {
         this.updateDisplay();
+    }
+
+    /**
+     * Get current filter state for debugging
+     */
+    getFilterState() {
+        return {
+            activeFilters: Array.from(this.activeFilters),
+            searchTerm: this.searchTerm,
+            visibleSlides: this.allSlides.filter(slide => !slide.element.classList.contains('hidden')).length,
+            totalSlides: this.allSlides.length
+        };
     }
 }
 
