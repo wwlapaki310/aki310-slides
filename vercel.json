@@ -3,6 +3,7 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/sre-next-2025/:path*", "destination": "/sre-next-2025/:path*" },
-    { "source": "/slidev-system/:path*", "destination": "/slidev-system/:path*" }
+    { "source": "/slidev-system/:path*", "destination": "/slidev-system/:path*" },
+    { "source": "/smart-tag-system/:path*", "destination": "/smart-tag-system/:path*" }
   ]
 }

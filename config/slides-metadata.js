@@ -11,8 +11,7 @@ export const slideMetadata = [
     category: 'tech-talk',
     duration: '15分',
     level: 'intermediate',
-    language: 'ja',
-    tags: ['default-tech', 'sre', 'conference']
+    language: 'ja'
   },
   {
     name: 'slidev-system',
@@ -23,8 +22,7 @@ export const slideMetadata = [
     category: 'system-design',
     duration: '20分',
     level: 'beginner',
-    language: 'ja',
-    tags: ['default-tech', 'default-business', 'slidev', 'vercel']
+    language: 'ja'
   },
   {
     name: 'smart-tag-system',
@@ -35,8 +33,7 @@ export const slideMetadata = [
     category: 'system-design',
     duration: '25分',
     level: 'intermediate', 
-    language: 'ja',
-    tags: ['default-tech', 'github', 'api', 'ux']
+    language: 'ja'
   }
 ];
 
