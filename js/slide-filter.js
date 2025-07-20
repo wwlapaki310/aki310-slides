@@ -17,6 +17,19 @@ class SlideFilter {
      * Initialize the slide filter system
      */
     init() {
+        // Wait for TagManager to be ready
+        if (window.tagManager) {
+            this.setup();
+        } else {
+            // Wait and retry
+            setTimeout(() => this.init(), 100);
+        }
+    }
+
+    /**
+     * Setup after TagManager is ready
+     */
+    setup() {
         this.cacheElements();
         this.bindEvents();
         this.updateDisplay();
@@ -143,7 +156,7 @@ class SlideFilter {
     matchesTagFilter(slideId) {
         if (this.activeFilters.size === 0) return true;
         
-        // Get slide tags from TagManager if available
+        // Get slide tags from TagManager
         if (window.tagManager) {
             const slideTags = window.tagManager.getTagsBySlide(slideId);
             return Array.from(this.activeFilters).some(filterTag => 
@@ -151,14 +164,7 @@ class SlideFilter {
             );
         }
         
-        // Fallback: check DOM for slide tags
-        const slideElement = document.querySelector(`[data-slide="${slideId}"]`);
-        const slideTags = Array.from(slideElement.querySelectorAll('.slide-tag'))
-            .map(tag => tag.dataset.tag);
-        
-        return Array.from(this.activeFilters).some(filterTag => 
-            slideTags.includes(filterTag)
-        );
+        return false;
     }
 
     /**
@@ -203,43 +209,6 @@ class SlideFilter {
     }
 
     /**
-     * Render slide tags (called by TagManager)
-     */
-    renderSlideTags(slideId, tags, tagDefinitions) {
-        const container = document.getElementById(`slide-tags-${slideId}`);
-        if (!container) return;
-
-        container.innerHTML = tags.map(tagId => {
-            const tagDef = tagDefinitions[tagId];
-            if (!tagDef) return '';
-            
-            const colorClass = this.getTagColorClass(tagDef.color);
-            return `
-                <span class="slide-tag ${colorClass}" data-tag="${tagId}" title="${tagDef.description || ''}">
-                    ${tagDef.name}
-                </span>
-            `;
-        }).join('');
-    }
-
-    /**
-     * Get CSS classes for tag colors
-     */
-    getTagColorClass(color) {
-        const colorMap = {
-            blue: 'bg-blue-100 text-blue-800 border-blue-200',
-            green: 'bg-green-100 text-green-800 border-green-200',
-            red: 'bg-red-100 text-red-800 border-red-200',
-            yellow: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-            purple: 'bg-purple-100 text-purple-800 border-purple-200',
-            pink: 'bg-pink-100 text-pink-800 border-pink-200',
-            indigo: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-            gray: 'bg-gray-100 text-gray-800 border-gray-200'
-        };
-        return colorMap[color] || colorMap.blue;
-    }
-
-    /**
      * Open tag editor for a specific slide
      */
     editSlideTags(slideId) {
@@ -273,7 +242,7 @@ class SlideFilter {
                     <div class="space-y-3 max-h-60 overflow-y-auto">
                         ${Object.entries(allTags).map(([tagId, tag]) => {
                             const isChecked = currentTags.includes(tagId);
-                            const colorClass = this.getTagColorClass(tag.color);
+                            const colorClass = window.tagManager.getTagColorClass(tag.color);
                             return `
                                 <label class="flex items-center space-x-3 cursor-pointer">
                                     <input type="checkbox" ${isChecked ? 'checked' : ''} 
@@ -316,7 +285,8 @@ class SlideFilter {
         if (window.tagManager) {
             window.tagManager.data.assignments[slideId] = newTags;
             window.tagManager.scheduleAutoSave();
-            window.tagManager.render();
+            window.tagManager.renderSlideTagsForSlide(slideId);
+            window.tagManager.renderTags(); // Update tag counts
         }
 
         // Update display
@@ -342,5 +312,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // Wait a bit for TagManager to initialize
     setTimeout(() => {
         window.slideFilter = new SlideFilter();
-    }, 100);
+    }, 200);
 });
