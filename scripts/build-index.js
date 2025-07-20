@@ -59,7 +59,7 @@ const htmlTemplate = `<!DOCTYPE html>
         .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         
-        /* Simple tag styles */
+        /* Enhanced tag styles */
         .slide-tag {
             padding: 4px 10px;
             border-radius: 12px;
@@ -111,7 +111,7 @@ const htmlTemplate = `<!DOCTYPE html>
             display: none;
         }
         
-        /* Minimal config */
+        /* Enhanced config panel */
         .config-toggle {
             position: fixed;
             top: 20px;
@@ -126,14 +126,14 @@ const htmlTemplate = `<!DOCTYPE html>
             z-index: 50;
             background: white;
             border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 16px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-            width: 320px;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            width: 360px;
             transform: translateY(-10px);
             opacity: 0;
             visibility: hidden;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
         }
         
         .config-panel.open {
@@ -147,11 +147,44 @@ const htmlTemplate = `<!DOCTYPE html>
             top: 20px;
             left: 20px;
             z-index: 50;
-            padding: 8px 16px;
-            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 16px;
+            background: rgba(0, 0, 0, 0.85);
             color: white;
             border-radius: 8px;
             font-size: 0.875rem;
+            backdrop-filter: blur(10px);
+        }
+        
+        .setup-card {
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            border: 2px dashed #9ca3af;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .connected-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            background: #dcfce7;
+            color: #166534;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .disconnected-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            background: #fef2f2;
+            color: #dc2626;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
         }
     </style>
 </head>
@@ -159,30 +192,60 @@ const htmlTemplate = `<!DOCTYPE html>
     <!-- Sync Indicator -->
     <div id="syncIndicator" class="sync-indicator hidden"></div>
 
-    <!-- Minimal Config -->
+    <!-- Enhanced Config Panel -->
     <div class="config-toggle">
-        <button onclick="toggleConfig()" class="bg-gray-600 text-white p-2 rounded-full hover:bg-gray-700 transition-colors" title="Settings">
+        <button onclick="toggleConfig()" class="bg-gray-600 text-white p-3 rounded-full hover:bg-gray-700 transition-colors shadow-lg" title="Tag Settings">
             ⚙️
         </button>
     </div>
     
     <div id="configPanel" class="config-panel">
-        <h3 class="font-semibold text-gray-800 mb-3">GitHub Sync (Optional)</h3>
-        <div class="space-y-3">
-            <div>
-                <input type="password" id="githubToken" placeholder="Personal Access Token" 
-                       class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <p class="text-xs text-gray-500 mt-1">For public tag sharing</p>
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-gray-800 text-lg">🏷️ Tag Settings</h3>
+            <button onclick="toggleConfig()" class="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+        
+        <div class="setup-card">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="text-lg">🔗</span>
+                <h4 class="font-semibold text-gray-800">GitHub Integration</h4>
             </div>
-            <div class="flex gap-2">
-                <button id="saveConfig" class="flex-1 bg-blue-500 text-white px-3 py-2 rounded text-sm hover:bg-blue-600">
-                    Save
-                </button>
-                <button id="testConnection" class="px-3 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">
-                    Test
-                </button>
+            <p class="text-sm text-gray-600 mb-3">
+                Connect your GitHub account to automatically save tags to a private Gist. 
+                This enables tag synchronization across devices.
+            </p>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Personal Access Token
+                    </label>
+                    <input type="password" id="githubToken" placeholder="ghp_..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">
+                        <a href="https://github.com/settings/tokens" target="_blank" class="text-blue-500 hover:underline">
+                            Create token
+                        </a> with 'gist' scope
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <button id="saveConfig" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors">
+                        Save & Connect
+                    </button>
+                    <button id="testConnection" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+                        Test
+                    </button>
+                </div>
             </div>
-            <div id="connectionStatus" class="text-xs"></div>
+        </div>
+        
+        <div class="border-t pt-4">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-gray-700">Connection Status</span>
+                <div id="connectionStatus" class="text-xs text-gray-600">Not configured</div>
+            </div>
+            <div class="text-xs text-gray-500">
+                💡 Tags work locally without GitHub, but won't sync across devices
+            </div>
         </div>
     </div>
 
@@ -242,7 +305,7 @@ const htmlTemplate = `<!DOCTYPE html>
     <script src="js/tag-manager.js"></script>
     <script src="js/slide-filter.js"></script>
     <script>
-        // Simple config toggle
+        // Enhanced config toggle
         function toggleConfig() {
             const panel = document.getElementById('configPanel');
             panel.classList.toggle('open');
@@ -277,9 +340,9 @@ function generateIndexPage() {
     const indexPath = path.join(distDir, 'index.html');
     fs.writeFileSync(indexPath, htmlTemplate);
     
-    console.log('✅ Generated simple index.html with inline tag management');
+    console.log('✅ Generated enhanced index.html with improved tag management UI');
     console.log(`📊 Slides included: ${slideMetadata.length}`);
-    console.log('🏷️ Tag system: Inline editing with Hybrid persistence');
+    console.log('🏷️ Tag system: Enhanced GitHub integration with auto-setup');
     slideMetadata.forEach(slide => {
         console.log(`   - ${slide.title} (/${slide.name}/)`);
     });
