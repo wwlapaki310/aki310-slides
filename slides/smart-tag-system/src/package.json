@@ -1,0 +1,13 @@
+{
+  "name": "smart-tag-system-slides",
+  "type": "module",
+  "scripts": {
+    "build": "slidev build",
+    "dev": "slidev --open",
+    "export": "slidev export"
+  },
+  "dependencies": {
+    "@slidev/cli": "^0.52.0",
+    "@slidev/theme-default": "latest"
+  }
+}
