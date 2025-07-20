@@ -331,11 +331,40 @@ const htmlTemplate = `<!DOCTYPE html>
 </body>
 </html>`;
 
+// Copy JavaScript files to dist/js/
+function copyJavaScriptFiles() {
+    const distJsDir = path.join('dist', 'js');
+    
+    // Ensure dist/js directory exists
+    if (!fs.existsSync(distJsDir)) {
+        fs.mkdirSync(distJsDir, { recursive: true });
+    }
+    
+    // Copy JavaScript files
+    const jsFiles = ['gist-api.js', 'tag-manager.js', 'slide-filter.js'];
+    const sourceDir = 'js';
+    
+    jsFiles.forEach(file => {
+        const sourcePath = path.join(sourceDir, file);
+        const destPath = path.join(distJsDir, file);
+        
+        if (fs.existsSync(sourcePath)) {
+            fs.copyFileSync(sourcePath, destPath);
+            console.log(`✅ Copied ${file} to dist/js/`);
+        } else {
+            console.warn(`⚠️ Warning: ${sourcePath} not found`);
+        }
+    });
+}
+
 function generateIndexPage() {
     const distDir = 'dist';
     if (!fs.existsSync(distDir)) {
         fs.mkdirSync(distDir, { recursive: true });
     }
+    
+    // Copy JavaScript files first
+    copyJavaScriptFiles();
     
     const indexPath = path.join(distDir, 'index.html');
     fs.writeFileSync(indexPath, htmlTemplate);
@@ -343,6 +372,7 @@ function generateIndexPage() {
     console.log('✅ Generated enhanced index.html with improved tag management UI');
     console.log(`📊 Slides included: ${slideMetadata.length}`);
     console.log('🏷️ Tag system: Enhanced GitHub integration with auto-setup');
+    console.log('🔧 JavaScript files copied to dist/js/');
     slideMetadata.forEach(slide => {
         console.log(`   - ${slide.title} (/${slide.name}/)`);
     });
