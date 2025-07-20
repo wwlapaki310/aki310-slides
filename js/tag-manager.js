@@ -24,6 +24,7 @@ class TagManager {
     async init() {
         this.bindEvents();
         await this.loadData();
+        // 設定に関係なく、常にタグエリアを表示
         this.renderAllSlideTags();
     }
 
@@ -50,7 +51,7 @@ class TagManager {
      */
     async loadData() {
         if (!this.gistAPI.isConfigured()) {
-            console.log('⚠️ GitHub Gist not configured');
+            console.log('⚠️ GitHub Gist not configured - showing Add buttons only');
             return;
         }
 
@@ -112,6 +113,12 @@ class TagManager {
      * Add a new tag to a slide
      */
     async addTagToSlide(slideId) {
+        // GitHub設定の確認
+        if (!this.gistAPI.isConfigured()) {
+            alert('Please configure GitHub settings first (⚙️ button in top-right corner)');
+            return;
+        }
+
         const tagName = prompt('Enter tag name:');
         if (!tagName || !tagName.trim()) return;
         
@@ -215,7 +222,10 @@ class TagManager {
      */
     renderSlideTagsForSlide(slideId) {
         const container = document.getElementById(`slide-tags-${slideId}`);
-        if (!container) return;
+        if (!container) {
+            console.warn(`Tag container not found for slide: ${slideId}`);
+            return;
+        }
 
         const tagIds = this.getTagsBySlide(slideId);
         
@@ -234,16 +244,22 @@ class TagManager {
             `;
         }).join('');
         
-        // Add the "Add Tag" button
+        // Always show "Add Tag" button
         const addButtonHTML = `
             <button class="add-tag-btn" 
                     onclick="tagManager.addTagToSlide('${slideId}')"
                     title="Add new tag">
-                + Add
+                + Add Tag
             </button>
         `;
         
-        container.innerHTML = tagsHTML + addButtonHTML;
+        // Show placeholder text if no tags and no GitHub config
+        let placeholderHTML = '';
+        if (tagIds.length === 0 && !this.gistAPI.isConfigured()) {
+            placeholderHTML = `<span class="text-gray-400 text-sm mr-2">No tags yet</span>`;
+        }
+        
+        container.innerHTML = placeholderHTML + tagsHTML + addButtonHTML;
     }
 
     /**
