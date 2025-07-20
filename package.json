@@ -4,7 +4,11 @@
   "description": "Multiple Slidev presentations management system",
   "type": "module",
   "scripts": {
-    "build": "npm run build:sre-next-2025 && npm run build:slidev-system && npm run build:smart-tag-system && npm run build:index",
+    "install-all": "npm run install:sre-next-2025 && npm run install:slidev-system && npm run install:smart-tag-system",
+    "install:sre-next-2025": "cd slides/sre-next-2025/src && npm install",
+    "install:slidev-system": "cd slides/slidev-system/src && npm install",
+    "install:smart-tag-system": "cd slides/smart-tag-system/src && npm install",
+    "build": "npm run install-all && npm run build:sre-next-2025 && npm run build:slidev-system && npm run build:smart-tag-system && npm run build:index",
     "build:sre-next-2025": "cd slides/sre-next-2025/src && npm run build",
     "build:slidev-system": "cd slides/slidev-system/src && npm run build",
     "build:smart-tag-system": "cd slides/smart-tag-system/src && npm run build",
